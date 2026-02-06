@@ -3,9 +3,9 @@ Contributors: closemarketing, davidperez, sacrajaimez, alexbreagarcia, matiasque
 Tags: gravityforms, wpforms, crm, vtiger, odoo
 Donate link: https://close.marketing/go/donate/
 Requires at least: 5.5
-Tested up to: 6.8
-Stable tag: 4.0.3
-Version: 4.0.3
+Tested up to: 6.9
+Stable tag: 4.2.1
+Version: 4.2.1
 License: GPL2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -48,7 +48,7 @@ And you will find, that there are Premium Addons to support:
 - [FacturaDirecta](https://close.technology/en/wordpress-plugins/formscrm-facturadirecta/)
 - [WHMCS](https://close.technology/en/wordpress-plugins/formscrm-whmcs/)
 
-You can use multiple feed connector in GravityForms, WPForms PRO and ContactForm7, and you can use multiple CRM connectors in the same form.
+You can use multiple feed connector in GravityForms, WPForms PRO, Elementor Forms and ContactForm7, and you can use multiple CRM connectors in the same form.
 
 Demo:
 [youtube https://www.youtube.com/watch?v=HHG763ikL7o]
@@ -58,7 +58,52 @@ We have developed a way to get values from other fields in GravityForms and WPFo
 {id:N} in order to get the value from field N
 {label:N} in order to get the label from field N (only in GravityForms)
 
+**Expert Mode**
+You can enable Expert Mode in the form feed. This mode will show all fields of the CRM in the form mapping. This is useful if you want to connect all fields of the CRM to the form. Now currently works for Odoo.
+
 We recommend to use this in the field mapping in the feed and hidden field that gets the value.
+
+== Slack Error Notifications ==
+
+Receive instant error notifications in your Slack workspace! When a form submission fails to send to your CRM, you'll get real-time alerts directly in your Slack channel.
+
+**How to Configure Slack Notifications:**
+
+1. Create an Incoming Webhook in Slack (https://api.slack.com/messaging/webhooks)
+2. Go to **Settings > FormsCRM** in WordPress
+3. Paste your webhook URL in the "Slack Webhook URL" field
+4. Choose the Slack channel where you want to receive notifications
+5. Save changes
+
+**What Information is Included:**
+
+When an error occurs, the Slack notification includes:
+- **Site Information**: Site name and URL in a single line
+- **Form Details**: Form type (Gravity Forms, WPForms, Elementor, etc.), Form ID, Form name, and Entry ID
+- **Error Details**: CRM name and complete error message
+- **Lead Data Preview**: First 3 fields from the form submission (+ indicator if more fields exist)
+- **Technical Details**: API endpoint URL for debugging
+
+**Message Format:**
+
+All Slack notifications use a compact, easy-to-read format with information presented in single lines. Messages are color-coded in red (danger) to stand out in your channel and ensure immediate attention to critical errors.
+== Error Notifications ==
+**Custom Email for Error Reports**
+You can configure a custom email address to receive error notifications when a form submission fails to send to your CRM. This is useful when you want different team members to receive error alerts without using the admin email.
+
+To configure:
+1. Go to Settings > FormsCRM
+2. Enter one or multiple email addresses (comma-separated) in the "Error Notification Email" field
+3. Save changes
+
+**Enhanced Error Email Information**
+When an error occurs, you'll receive a detailed email notification that includes:
+- **Site Information**: Site name, URL, and timestamp of the error
+- **Form Information**: Form type (Gravity Forms, WPForms, Elementor, etc.), Form ID, Form name, and Entry ID
+- **Error Details**: CRM name, complete error message, and all form data in a formatted table
+- **Technical Details**: API URL and JSON request for debugging purposes
+
+The email is professionally formatted with color-coded sections for easy reading and quick troubleshooting.
 
 == Settings for Clientify ==
 **Instructions for adding Clientify cookie in the forms**
@@ -73,6 +118,9 @@ You can add a new field that fits with expected closure date for Deals in Client
 **Autoassignment in Clientify**
 Field that applies the autoassignment to the contact. You can add a string with the list of usernames (property emails) separated by comma (,) to apply the autoassignment.
 
+**Webhook in GravityForms**
+You can add a new field that fits with the Webhook in GravityForms. This field is optional, and you need to add the webhook url. The plugin will send the form data received from CRM to the webhook url.
+
 == Installation ==
 
 Extract the zip file and just drop the contents in the wp-content/plugins/ directory of your
@@ -82,6 +130,48 @@ WordPress installation and then activate the Plugin from Plugins page.
 [Official Repository GitHub](https://github.com/closemarketing/formscrm/)
 
 == Changelog ==
+= 4.2.1 =
+*  Hotfix: Error not sending correctly entry id in webhook.
+
+= 4.2.0 =
+*  Enhanced: New design for the settings page.
+*  Dedicated menu for FormsCRM settings.
+*  Improved: Added new tests for more consistent code coverage.
+*  Fixed: Fatal error in formscrm_debug_email_lead function.
+
+= 4.1.0 =
+*  Enhanced: Complete redesign of the settings page with modern UI and improved UX.
+*  Enhanced: New color scheme with cyan-to-purple gradient for better visual appeal.
+*  Enhanced: Modern tab navigation system for better organization of settings and license management.
+*  Enhanced: Responsive grid layout for forms and CRM integrations display.
+*  Enhanced: Improved cards design with hover effects and smooth transitions.
+*	 Added: Slack integration for real-time error notifications via Incoming Webhook.
+*	 Enhanced: Slack notifications include comprehensive information (site, form, CRM, error, lead preview).
+*	 Enhanced: Slack messages use a compact, single-line format for quick scanning.
+*	 Enhanced: All form integrations (Gravity Forms, WPForms, Elementor, Contact Form 7, WooCommerce) now include form context in error reports.
+*	 Added: 10 comprehensive unit tests for Slack notification functions.
+*  Added: Test utility for manually testing Slack notifications (tests/test-slack.php).
+*  Added: Custom email option for error notifications - Configure specific emails to receive error reports.
+*  Enhanced: Error email notifications now include site information (name, URL, timestamp).
+*  Enhanced: Error emails now show detailed form information (type, ID, name, entry ID).
+*  Enhanced: Professional HTML email template with color-coded sections for better readability.
+*  Enhanced: Complete technical details in error emails (API URL and JSON request) for easier debugging.
+*  Improved: All form integrations (Gravity Forms, WPForms, Elementor, Contact Form 7, WooCommerce) now send enhanced error information.
+
+= 4.0.6 =
+*  Added: Support Deals tags in Clientify.
+*  Fixed: Format of webhook url in GravityForms.
+*  Fixed: PHP 7.4 compatibility issues.
+
+= 4.0.5 =
+*  Fixed: CF7 custom fields with select fields not sending.
+*  Added: Expert Mode.
+*  Fixed: Fatal errors in CF7.
+
+= 4.0.4 =
+*  Added: Webhook to send form data received from CRM in GravityForms.
+*  Added: Automatic tests for robust testing and quality code.
+
 = 4.0.3 =
 *  Enhaced: Add Pipeline name to improve Clientify pipeline implementation in Forms.
 *  Fixed: Autoassigment in Clientify not added in contacts module.

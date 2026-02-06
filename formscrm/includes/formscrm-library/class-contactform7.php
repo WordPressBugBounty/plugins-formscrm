@@ -19,7 +19,6 @@ defined( 'ABSPATH' ) || exit;
 	 * @version    1.0
 	 */
 class FORMSCRM_CF7_Settings {
-
 	/**
 	 * CRM LIB external
 	 *
@@ -49,38 +48,8 @@ class FORMSCRM_CF7_Settings {
 				'callback' => array( $this, 'settings_add_crm' ),
 			),
 		);
-		$panels = array_merge( $panels, $new_page );
+		$panels   = array_merge( $panels, $new_page );
 		return $panels;
-	}
-
-	/**
-	 * Include library connector
-	 *
-	 * @param string $crmtype Type of CRM.
-	 * @return void
-	 */
-	private function include_library( $crmtype ) {
-		if ( isset( $_POST['fc_crm_type'] ) ) {
-			$crmtype = sanitize_text_field( $_POST['fc_crm_type'] );
-		}
-
-		if ( isset( $crmtype ) ) {
-			$crmname      = strtolower( $crmtype );
-			$crmclassname = str_replace( ' ', '', $crmname );
-			$crmclassname = 'CRMLIB_' . strtoupper( $crmclassname );
-			$crmname      = str_replace( ' ', '_', $crmname );
-
-			$array_path = formscrm_get_crmlib_path();
-			if ( isset( $array_path[ $crmname ] ) ) {
-				include_once $array_path[ $crmname ];
-			}
-
-			formscrm_debug_message( $array_path[ $crmname ] );
-
-			if ( class_exists( $crmclassname ) ) {
-				$this->crmlib = new $crmclassname();
-			}
-		}
 	}
 
 	/**
@@ -151,9 +120,11 @@ class FORMSCRM_CF7_Settings {
 						<input type="text" id="wpcf7-crm-fc_crm_odoodb" name="wpcf7-crm[fc_crm_odoodb]" class="wide" size="70" placeholder="<?php esc_html_e( 'Odoo DB', 'formscrm' ); ?>" value="<?php echo ( isset( $cf7_crm['fc_crm_odoodb'] ) ) ? esc_attr( $cf7_crm['fc_crm_odoodb'] ) : ''; ?>" />
 					</p>
 					<?php } ?>
-
+					
+					<?php
+					$this->crmlib = formscrm_get_api_class( $cf7_crm['fc_crm_type'] );
+					?>
 					<p>
-						<?php $this->include_library( $cf7_crm['fc_crm_type'] ); ?>
 						<select name="wpcf7-crm[fc_crm_module]" class="medium" onchange="jQuery(this).parents('form').submit();" id="fc_crm_module">
 							<?php
 							$settings_module = isset( $cf7_crm['fc_crm_module'] ) ? $cf7_crm['fc_crm_module'] : '';
@@ -168,7 +139,7 @@ class FORMSCRM_CF7_Settings {
 									continue;
 								}
 								echo '<option value="' . esc_html( $value ) . '" ';
-								if ( isset( $value ) ) {
+								if ( $value ) {
 									selected( $settings_module, $value );
 								}
 								echo '>' . esc_html( $module['label'] ) . '</option>';
@@ -176,7 +147,10 @@ class FORMSCRM_CF7_Settings {
 							?>
 						</select>
 					</p>
-
+					<p>
+						<label for="wpcf7-crm-fc_crm_mode_expert"><?php esc_html_e( 'Expert Mode', 'formscrm' ); ?></label><br />
+						<input type="checkbox" id="wpcf7-crm-fc_crm_mode_expert" name="wpcf7-crm[fc_crm_mode_expert]" class="medium" value="on" <?php checked( $cf7_crm['fc_crm_mode_expert'], 'on' ); ?> /><?php esc_html_e( 'Enable this option to show all fields of the CRM.', 'formscrm' ); ?>
+					</p>
 				<?php } ?>
 			</div>
 			<?php
@@ -199,7 +173,7 @@ class FORMSCRM_CF7_Settings {
 				$form_fields = ! empty( $cf7_form ) ? $cf7_form->scan_form_tags() : array();
 
 				if ( ! empty( $crm_fields ) && is_array( $crm_fields ) ) {
-				?>
+					?>
 				<table class="cf7-map-table" cellspacing="0" cellpadding="0">
 					<tbody>
 						<tr class="cf7-map-row">
@@ -221,7 +195,7 @@ class FORMSCRM_CF7_Settings {
 										<label for="wpcf7-crm-field-<?php echo esc_html( $crm_field_name ); ?>">
 											<?php
 											echo esc_html( $crm_field_label );
-											if ( isset( $crm_field_req ) && $crm_field_req ) {
+											if ( $crm_field_req ) {
 												echo ' <span class="required">*</span>';
 											}
 											?>
@@ -243,7 +217,7 @@ class FORMSCRM_CF7_Settings {
 									</td>
 							</tr>
 							<?php
-							$count_fields++;
+							++$count_fields;
 						}
 						if ( 0 === $count_fields ) {
 							echo '<tr><td colspan="2">' . esc_html__( 'No fields found, or the connection has not got the right permissions.', 'formscrm' ) . '</td></tr>';
@@ -251,7 +225,7 @@ class FORMSCRM_CF7_Settings {
 						?>
 					</tbody>
 				</table>
-				<?php
+					<?php
 				} else {
 					echo '<p>' . esc_html__( 'No fields found. Reconnect your CRM.', 'formscrm' ) . '</p>';
 				}
@@ -268,10 +242,12 @@ class FORMSCRM_CF7_Settings {
 	 * @return void
 	 */
 	public function crm_save_options( $args ) {
-
+		// phpcs:disable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput -- Nonce verification and sanitization handled by Contact Form 7.
 		if ( isset( $_POST['wpcf7-crm'] ) && is_array( $_POST['wpcf7-crm'] ) ) {
-			update_option( 'cf7_crm_' . $args->id(), array_filter( $_POST['wpcf7-crm'] ) );
+			$crm_data = array_map( 'sanitize_text_field', wp_unslash( $_POST['wpcf7-crm'] ) );
+			update_option( 'cf7_crm_' . $args->id(), array_filter( $crm_data ) );
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput
 	}
 
 	/**
@@ -286,7 +262,10 @@ class FORMSCRM_CF7_Settings {
 		$crm_type   = ! empty( $cf7_crm['fc_crm_type'] ) ? sanitize_text_field( $cf7_crm['fc_crm_type'] ) : '';
 
 		// Create contact in CRM.
-		$this->include_library( $crm_type );
+		$this->crmlib = formscrm_get_api_class( $crm_type );
+		if ( empty( $this->crmlib ) ) {
+			return;
+		}
 		$merge_vars      = $this->get_merge_vars( $cf7_crm, $submission->get_posted_data() );
 		$response_result = $this->crmlib->create_entry( $cf7_crm, $merge_vars );
 
@@ -294,7 +273,13 @@ class FORMSCRM_CF7_Settings {
 			$url   = isset( $response_result['url'] ) ? $response_result['url'] : '';
 			$query = isset( $response_result['query'] ) ? $response_result['query'] : '';
 
-			formscrm_debug_email_lead( $cf7_crm['fc_crm_type'], 'Error ' . $response_result['message'], $merge_vars, $url, $query );
+			$form_info = array(
+				'form_type' => 'Contact Form 7',
+				'form_id'   => $contact_form->id(),
+				'form_name' => $contact_form->title(),
+			);
+
+			formscrm_alert_error( $cf7_crm['fc_crm_type'], 'Error ' . $response_result['message'], $merge_vars, $url, $query, $form_info );
 		}
 	}
 
@@ -305,21 +290,29 @@ class FORMSCRM_CF7_Settings {
 	 * @param array $submitted_data Submitted data.
 	 * @return array
 	 */
-	private function get_merge_vars( $cf7_crm, $submitted_data ) {
+	public function get_merge_vars( $cf7_crm, $submitted_data ) {
+		if ( empty( $cf7_crm ) || ! is_array( $cf7_crm ) ) {
+			return array();
+		}
 		$merge_vars = array();
 		foreach ( $cf7_crm as $key => $value ) {
-			if ( false !== strpos( $key, 'fc_crm_field' ) ) {
-				$crm_key = str_replace( 'fc_crm_field-', '', $key );
-
-				if ( ! empty( $submitted_data[ $value ] ) ) {
-					$value = $submitted_data[ $value ];
-				}
-
-				$merge_vars[] = array(
-					'name'  => $crm_key,
-					'value' => $value,
-				);
+			if ( false === strpos( $key, 'fc_crm_field' ) ) {
+				continue;
 			}
+			$crm_key = str_replace( 'fc_crm_field-', '', $key );
+
+			if ( ! empty( $submitted_data[ $value ] ) ) {
+				$value = $submitted_data[ $value ];
+			}
+
+			if ( is_array( $value ) ) {
+				$value = implode( ',', $value );
+			}
+
+			$merge_vars[] = array(
+				'name'  => $crm_key,
+				'value' => $value,
+			);
 		}
 
 		return $merge_vars;

@@ -8,14 +8,17 @@
  * @category Functions
  * @package  Gravityforms CRM
  * @version  1.0.0
+ *
+ * phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound
  */
 
 /**
- * Class for Holded connection.
+ * Class for Clientify connection.
  */
 class CRMLIB_Clientify {
+ // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound -- Legacy class name, changing would break compatibility.
 	/**
-	 * Gets information from Holded CRM
+	 * Gets information from Clientify CRM
 	 *
 	 * @param string $url URL for module.
 	 * @param string $apikey API Authentication.
@@ -377,20 +380,23 @@ class CRMLIB_Clientify {
 	 */
 	private function get_fields_email_phones() {
 		$fields = array();
-		$types = array(
+		$types  = array(
 			1 => __( 'Work', 'formscrm' ),
 			2 => __( 'Personal', 'formscrm' ),
 			3 => __( 'Other', 'formscrm' ),
 		);
 
 		// Emails.
-		array_walk( $types, function( $type, $key ) use ( &$fields ) {
-			$fields[] = array(
-				'name'     => 'emails|' . $key,
-				'label'    => __( 'Email', 'formscrm' ) . ' ' . $type,
-				'required' => false,
-			);
-		});
+		array_walk(
+			$types,
+			function ( $type, $key ) use ( &$fields ) {
+				$fields[] = array(
+					'name'     => 'emails|' . $key,
+					'label'    => __( 'Email', 'formscrm' ) . ' ' . $type,
+					'required' => false,
+				);
+			}
+		);
 
 		$types = array(
 			2 => __( 'Mobile', 'formscrm' ),
@@ -400,14 +406,17 @@ class CRMLIB_Clientify {
 			6 => __( 'Other', 'formscrm' ),
 		);
 
-		// Phones
-		array_walk( $types, function( $type, $key ) use ( &$fields ) {
-			$fields[] = array(
-				'name'     => 'phones|' . $key,
-				'label'    => __( 'Phone', 'formscrm' ) . ' ' . $type,
-				'required' => false,
-			);
-		});
+		// Phones.
+		array_walk(
+			$types,
+			function ( $type, $key ) use ( &$fields ) {
+				$fields[] = array(
+					'name'     => 'phones|' . $key,
+					'label'    => __( 'Phone', 'formscrm' ) . ' ' . $type,
+					'required' => false,
+				);
+			}
+		);
 
 		return $fields;
 	}
@@ -460,6 +469,12 @@ class CRMLIB_Clientify {
 			$fields[] = array(
 				'name'     => 'email',
 				'label'    => __( 'Email Main', 'formscrm' ),
+				'required' => false,
+			);
+
+			$fields[] = array(
+				'name'     => 'country',
+				'label'    => __( 'Country', 'formscrm' ),
 				'required' => false,
 			);
 
@@ -721,6 +736,12 @@ class CRMLIB_Clientify {
 			);
 
 			$fields[] = array(
+				'name'     => 'deal|tags',
+				'label'    => __( 'Deal tags (separated by comma)', 'formscrm' ),
+				'required' => false,
+			);
+
+			$fields[] = array(
 				'name'     => 'deal|expected_closed_date_days',
 				'label'    => __( 'Expected Closure Date in Days', 'formscrm' ),
 				'required' => false,
@@ -776,6 +797,8 @@ class CRMLIB_Clientify {
 		$contact           = array();
 		$deal              = array();
 		$deal_product_skus = '';
+		$deal_tags         = '';
+		$last_module       = 'contact';
 
 		$module = sanitize_title( $module );
 		$module = str_replace( '-deals', '', $module );
@@ -793,12 +816,15 @@ class CRMLIB_Clientify {
 			} elseif ( strpos( $element['name'], '|' ) && 0 === strpos( $element['name'], 'deal' ) ) {
 				if ( 'deal|product_skus' === $element['name'] ) {
 					$deal_product_skus = $element['value'];
+				} elseif ( 'deal|tags' === $element['name'] ) {
+					$deal_tags = $element['value'];
 				} elseif ( 'deal|expected_closed_date_days' === $element['name'] ) {
 					$deal['expected_closed_date'] = gmdate( 'Y-m-d', strtotime( '+' . (int) $element['value'] . ' days' ) );
 				} elseif ( 'deal|pipeline_name' === $element['name'] ) {
-					$pipeline_url = $this->get_pipeline_url( $element['value'], $apikey );
-					if ( ! empty( $pipeline_url ) ) {
-						$deal['pipeline'] = $pipeline_url;
+					// Pipeline URL functionality not yet implemented.
+					// For now, use the pipeline name directly if provided.
+					if ( ! empty( $element['value'] ) ) {
+						$deal['pipeline'] = $element['value'];
 					}
 				} else {
 					$deal_field             = explode( '|', $element['name'] );
@@ -811,17 +837,17 @@ class CRMLIB_Clientify {
 					'value' => $element['value'],
 				);
 			} elseif ( strpos( $element['name'], '|' ) && 0 === strpos( $element['name'], 'emails' ) ) {
-				$email                                = explode( '|', $element['name'] );
-				$contact['emails'][] = [
+				$email               = explode( '|', $element['name'] );
+				$contact['emails'][] = array(
 					'type'  => (int) $email[1],
 					'email' => $element['value'],
-				];
+				);
 			} elseif ( strpos( $element['name'], '|' ) && 0 === strpos( $element['name'], 'phones' ) ) {
-				$phone                                = explode( '|', $element['name'] );
-				$contact['phones'][] = [
+				$phone               = explode( '|', $element['name'] );
+				$contact['phones'][] = array(
 					'type'  => (int) $phone[1],
 					'phone' => $element['value'],
-				];
+				);
 			} elseif ( strpos( $element['name'], '|' ) && 0 === strpos( $element['name'], 'addresses' ) ) {
 				$address_field                                = explode( '|', $element['name'] );
 				$contact['addresses'][0][ $address_field[1] ] = $element['value'];
@@ -873,10 +899,14 @@ class CRMLIB_Clientify {
 				if ( ! empty( $deal_product_skus ) ) {
 					$res_products = $this->extract_deal_products( $deal_product_skus, $apikey );
 					if ( ! empty( $res_products['data'] ) ) {
-						$deal_products = $res_products['data'];
+						$deal_products  = $res_products['data'];
 						$deal['amount'] = ! empty( $res_products['total'] ) ? $res_products['total'] : 0;
 					}
 				}
+				// Set default values for key and slug.
+				$key  = 'contact';
+				$slug = 'contacts';
+
 				if ( 'contacts' === $module ) {
 					$key  = 'contact';
 					$slug = 'contacts';
@@ -888,11 +918,50 @@ class CRMLIB_Clientify {
 				$deal['amount'] = isset( $deal['amount'] ) ? $deal['amount'] : 0;
 				$result         = $this->request( 'deals', $deal, $apikey );
 				if ( 'ok' === $result['status'] ) {
-					$response_result['id'] = $contact_id . '|' . $result['data']['id'];
+					$response_result['id'] = sprintf(
+						/* translators: %1$s: Contact ID, %2$s: Deal ID */
+						__( 'Contact %1$s | Deal %2$s', 'formscrm' ),
+						$contact_id,
+						$result['data']['id']
+					);
 				}
-				if ( ! empty( $deal_products ) ) {
-					$this->request( 'deals/' . $result['data']['id'] . '/products/', $res_products['data'], $apikey, 'PUT' );
+
+				// Add tags to deal.
+				if ( ! empty( $deal_tags ) ) {
+					$deal_tags_raw = explode( ',', $deal_tags );
+					$deal_id       = $result['data']['id'];
+
+					foreach ( $deal_tags_raw as $deal_tag ) {
+						$deal_tags_api = array(
+							'name' => sanitize_text_field( $deal_tag ),
+						);
+
+						$result_tag = $this->request( 'deals/' . $deal_id . '/tags/', $deal_tags_api, $apikey );
+
+						if ( 'ok' !== $result_tag['status'] ) {
+							$result_deal_tag = sprintf(
+								/* translators: %s: Tag name */
+								__( 'Tag %s not added to deal', 'formscrm' ),
+								$deal_tag,
+							);
+						} else {
+							$result_deal_tag = sprintf(
+								/* translators: %s: Tag name */
+								__( 'Tag %s added to deal', 'formscrm' ),
+								$deal_tag,
+							);
+						}
+						$response_result['message'] .= ' ' . $result_deal_tag;
+					}
 				}
+
+				// Add products to deal.
+				if ( ! empty( $deal_products ) && isset( $res_products['data'] ) ) {
+					$result = $this->request( 'deals/' . $result['data']['id'] . '/products/', $res_products['data'], $apikey, 'PUT' );
+
+					$response_result['message'] .= ' ' . $result['message'] . '.';
+				}
+				$last_module = 'deal';
 			}
 		} else {
 			$message         = isset( $result['data'] ) ? $result['data'] : '';
@@ -903,6 +972,8 @@ class CRMLIB_Clientify {
 				'query'   => isset( $result['query'] ) ? $result['query'] : '',
 			);
 		}
+
+		$response_result['module'] = $last_module;
 		return $response_result;
 	}
 
@@ -929,10 +1000,10 @@ class CRMLIB_Clientify {
 				}
 			}
 		}
-		return [
+		return array(
 			'status' => 'ok',
 			'data'   => $deal_products,
 			'total'  => $deal_total,
-		];
+		);
 	}
 } //from Class

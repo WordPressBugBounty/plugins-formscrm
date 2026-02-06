@@ -53,38 +53,6 @@ class FormsCRM_Elementor_Action_After_Submit extends \ElementorPro\Modules\Forms
 	}
 
 	/**
-	 * Include library connector
-	 *
-	 * @param string $crmtype Type of CRM.
-	 * @return void
-	 */
-	private function include_library( $crmtype ) {
-		if ( isset( $_POST['fc_crm_type'] ) ) {
-			$crmtype = sanitize_text_field( $_POST['fc_crm_type'] );
-		}
-
-		if ( isset( $crmtype ) ) {
-			$crmname      = strtolower( $crmtype );
-			$crmclassname = str_replace( ' ', '', $crmname );
-			$crmclassname = 'CRMLIB_' . strtoupper( $crmclassname );
-			$crmname      = str_replace( ' ', '_', $crmname );
-
-			$array_path = formscrm_get_crmlib_path();
-			if ( isset( $array_path[ $crmname ] ) ) {
-				include_once $array_path[ $crmname ];
-			}
-
-			if ( class_exists( $crmclassname ) ) {
-				$this->crmlib = new $crmclassname();
-			} else {
-				// If the class does not exist, we throw an error.
-				formscrm_debug_message( 'Class ' . $crmclassname . ' not found in ' . $array_path[ $crmname ] );
-				wp_send_json_error( __( 'CRM library not found', 'formscrm' ) );
-			}
-		}
-	}
-
-	/**
 	 * Register Settings Section
 	 *
 	 * Registers the Action controls
@@ -205,19 +173,28 @@ class FormsCRM_Elementor_Action_After_Submit extends \ElementorPro\Modules\Forms
 			)
 		);
 
+		// Expert Mode.
+		$widget->add_control(
+			'fc_crm_mode_expert',
+			array(
+				'label' => __( 'Expert Mode', 'formscrm' ),
+				'type'  => \Elementor\Controls_Manager::SWITCHER,
+			)
+		);
+
 		$widget->add_control(
 			'connect_crm',
-			[
+			array(
 				'label'       => esc_html__( 'Connect CRM', 'formscrm' ),
 				'type'        => \Elementor\Controls_Manager::BUTTON,
 				'separator'   => 'before',
 				'button_type' => 'info',
 				'text'        => esc_html__( 'Connect', 'formscrm' ),
 				'event'       => 'formscrm:editor:connectCRM',
-				'condition' => array(
+				'condition'   => array(
 					'fc_crm_type' => formscrm_get_dependency_apipassword(),
 				),
-			]
+			)
 		);
 
 		$widget->add_control(
@@ -259,6 +236,7 @@ class FormsCRM_Elementor_Action_After_Submit extends \ElementorPro\Modules\Forms
 		$raw_fields = $record->get( 'fields' );
 
 		// Unpack hidden settings for the form.
+		$hidden_settings = array();
 		if ( isset( $settings['formscrm_settings_hidden'] ) ) {
 			$hidden_settings = json_decode( $settings['formscrm_settings_hidden'], true );
 			$settings        = array_merge( $settings, $hidden_settings );
@@ -269,28 +247,30 @@ class FormsCRM_Elementor_Action_After_Submit extends \ElementorPro\Modules\Forms
 		}
 
 		// Normalize the Form Data.
-		$merge_vars = [];
+		$merge_vars = array();
 		foreach ( $raw_fields as $id => $field ) {
 			$key = array_search( $id, $hidden_settings, true );
 			if ( false === $key ) {
 				continue;
 			}
 			$field_id     = str_replace( 'fc_crm_field-', '', $key );
-			$merge_vars[] = [
+			$merge_vars[] = array(
 				'name'  => $field_id,
 				'value' => $field['value'] ?? '',
-			];
+			);
 		}
 
-		if ( ! empty( $_POST['visitor_key'] ) ) { // phpcs:ignore
-			$merge_vars['visitor_key'] = [
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- Nonce verification handled by Elementor forms.
+		if ( ! empty( $_POST['visitor_key'] ) ) {
+			$merge_vars['visitor_key'] = array(
 				'name'  => 'visitor_key',
 				'value' => sanitize_text_field( wp_unslash( $_POST['visitor_key'] ) ),
-			];
+			);
 		}
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
 		// Create contact in CRM.
-		$settings = formscrm_elementor_process_settings( $settings );
-		$this->include_library( $settings['fc_crm_type'] );
+		$settings        = formscrm_elementor_process_settings( $settings );
+		$this->crmlib    = formscrm_get_api_class( $settings['fc_crm_type'] );
 		$response_result = $this->crmlib->create_entry( $settings, $merge_vars );
 
 		$response_message = '';
@@ -299,7 +279,13 @@ class FormsCRM_Elementor_Action_After_Submit extends \ElementorPro\Modules\Forms
 			$query   = isset( $response_result['query'] ) ? $response_result['query'] : '';
 			$message = isset( $response_result['message'] ) ? $response_result['message'] : '';
 
-			formscrm_debug_email_lead( $settings['fc_crm_type'], 'Error ' . $message, $merge_vars, $url, $query );
+			$form_info = array(
+				'form_type' => 'Elementor',
+				'form_id'   => isset( $settings['form_id'] ) ? $settings['form_id'] : ( isset( $settings['id'] ) ? $settings['id'] : '' ),
+				'form_name' => isset( $settings['form_name'] ) ? $settings['form_name'] : '',
+			);
+
+			formscrm_alert_error( $settings['fc_crm_type'], 'Error ' . $message, $merge_vars, $url, $query, $form_info );
 
 			$response_message = sprintf(
 				// translators: %1$s CRM name %2$s Error message %3$s URL %4$s Query.
