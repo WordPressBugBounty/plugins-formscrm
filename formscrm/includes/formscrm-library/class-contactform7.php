@@ -33,6 +33,7 @@ class FORMSCRM_CF7_Settings {
 		add_filter( 'wpcf7_editor_panels', array( $this, 'show_cm_metabox' ) );
 		add_action( 'wpcf7_after_save', array( $this, 'crm_save_options' ) );
 		add_action( 'wpcf7_before_send_mail', array( $this, 'crm_process_entry' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_autosubmit_assets' ) );
 	}
 
 	/**
@@ -61,11 +62,13 @@ class FORMSCRM_CF7_Settings {
 	public function settings_add_crm( $args ) {
 		$cf7_crm_defaults = array();
 		$cf7_crm          = get_option( 'cf7_crm_' . $args->id(), $cf7_crm_defaults );
+		$settings_module  = isset( $cf7_crm['fc_crm_module'] ) ? $cf7_crm['fc_crm_module'] : '';
 		?>
 		<div class="metabox-holder">
 			<div class="cme-main-fields">
 				<p>
-					<select name="wpcf7-crm[fc_crm_type]" class="medium" onchange="jQuery(this).parents('form').submit();" id="fc_crm_type">
+					<label for="fc_crm_type"><?php esc_html_e( 'CRM Type:', 'formscrm' ); ?></label><br />
+					<select name="wpcf7-crm[fc_crm_type]" class="medium formscrm-autosubmit" id="fc_crm_type" data-formscrm-autosubmit="true">
 						<?php
 						foreach ( formscrm_get_choices() as $choice ) {
 							echo '<option value="' . esc_html( $choice['value'] ) . '" ';
@@ -76,6 +79,10 @@ class FORMSCRM_CF7_Settings {
 						}
 						?>
 					</select>
+					<span class="formscrm-saving-indicator" style="display:none; margin-left:10px; color:#46b450;">
+						<span class="dashicons dashicons-update-alt" style="animation: rotation 1s infinite linear;"></span>
+						<?php esc_html_e( 'Saving...', 'formscrm' ); ?>
+					</span>
 				</p>
 				<?php if ( isset( $cf7_crm['fc_crm_type'] ) && $cf7_crm['fc_crm_type'] ) { ?>
 
@@ -125,10 +132,11 @@ class FORMSCRM_CF7_Settings {
 					$this->crmlib = formscrm_get_api_class( $cf7_crm['fc_crm_type'] );
 					?>
 					<p>
-						<select name="wpcf7-crm[fc_crm_module]" class="medium" onchange="jQuery(this).parents('form').submit();" id="fc_crm_module">
+						<label for="fc_crm_module"><?php esc_html_e( 'CRM Module:', 'formscrm' ); ?></label><br />
+						<select name="wpcf7-crm[fc_crm_module]" class="medium formscrm-autosubmit" id="fc_crm_module" data-formscrm-autosubmit="true">
 							<?php
-							$settings_module = isset( $cf7_crm['fc_crm_module'] ) ? $cf7_crm['fc_crm_module'] : '';
-							foreach ( $this->crmlib->list_modules( $cf7_crm ) as $module ) {
+							$modules = $this->crmlib->list_modules( $cf7_crm );
+							foreach ( $modules as $module ) {
 								$value = '';
 								if ( ! empty( $module['value'] ) ) {
 									$value = $module['value'];
@@ -144,8 +152,17 @@ class FORMSCRM_CF7_Settings {
 								}
 								echo '>' . esc_html( $module['label'] ) . '</option>';
 							}
+							if ( empty( $settings_module ) || ! in_array( $settings_module, array_column( $modules, 'value' ), true ) ) {
+								$default_value            = ! empty( $modules[0]['value'] ) ? $modules[0]['value'] : '';
+								$settings_module          = $default_value;
+								$cf7_crm['fc_crm_module'] = $default_value;
+							}
 							?>
 						</select>
+						<span class="formscrm-saving-indicator" style="display:none; margin-left:10px; color:#46b450;">
+							<span class="dashicons dashicons-update-alt" style="animation: rotation 1s infinite linear;"></span>
+							<?php esc_html_e( 'Saving...', 'formscrm' ); ?>
+						</span>
 					</p>
 					<p>
 						<label for="wpcf7-crm-fc_crm_mode_expert"><?php esc_html_e( 'Expert Mode', 'formscrm' ); ?></label><br />
@@ -154,21 +171,24 @@ class FORMSCRM_CF7_Settings {
 				<?php } ?>
 			</div>
 			<?php
+			// Show API connection status.
+			if ( ! empty( $cf7_crm['fc_crm_type'] ) ) {
+				formscrm_render_connection_status( $cf7_crm, 'html' );
+			}
+
 			if ( ! empty( $this->crmlib ) ) {
 				$login_crm = $this->crmlib->login( $cf7_crm );
 				if ( is_array( $login_crm ) && isset( $login_crm['status'] ) && 'error' === $login_crm['status'] ) {
-					echo '<p>' . esc_html__( 'We could not login to the CRM', 'formscrm' ) . ' ' . esc_html( $login_crm['message'] ) . '</p>';
 					return;
 				}
 
 				if ( false === $login_crm ) {
-					echo '<p>' . esc_html__( 'We could not login to the CRM', 'formscrm' ) . '</p>';
 					return;
 				}
 			}
 
-			if ( isset( $cf7_crm['fc_crm_module'] ) && $cf7_crm['fc_crm_module'] ) {
-				$crm_fields  = $this->crmlib->list_fields( $cf7_crm, $cf7_crm['fc_crm_module'] );
+			if ( $settings_module ) {
+				$crm_fields  = $this->crmlib->list_fields( $cf7_crm, $settings_module );
 				$cf7_form    = WPCF7_ContactForm::get_instance( $args->id() );
 				$form_fields = ! empty( $cf7_form ) ? $cf7_form->scan_form_tags() : array();
 
@@ -274,9 +294,10 @@ class FORMSCRM_CF7_Settings {
 			$query = isset( $response_result['query'] ) ? $response_result['query'] : '';
 
 			$form_info = array(
-				'form_type' => 'Contact Form 7',
-				'form_id'   => $contact_form->id(),
-				'form_name' => $contact_form->title(),
+				'form_type'       => 'contactform7',
+				'form_type_title' => 'Contact Form 7',
+				'form_id'         => $contact_form->id(),
+				'form_name'       => $contact_form->title(),
 			);
 
 			formscrm_alert_error( $cf7_crm['fc_crm_type'], 'Error ' . $response_result['message'], $merge_vars, $url, $query, $form_info );
@@ -309,6 +330,9 @@ class FORMSCRM_CF7_Settings {
 				$value = implode( ',', $value );
 			}
 
+			// Process dynamic values (shortcodes).
+			$value = $this->fill_dynamic_value( $value, $submitted_data );
+
 			$merge_vars[] = array(
 				'name'  => $crm_key,
 				'value' => $value,
@@ -316,6 +340,84 @@ class FORMSCRM_CF7_Settings {
 		}
 
 		return $merge_vars;
+	}
+
+	/**
+	 * Enqueue auto-submit assets for CF7 settings
+	 *
+	 * @param string $hook Hook suffix for the current admin page.
+	 * @return void
+	 */
+	public function enqueue_autosubmit_assets( $hook ) {
+		// Only load on CF7 edit pages.
+		if ( 'toplevel_page_wpcf7' !== $hook ) {
+			return;
+		}
+
+		// Enqueue CSS (reusing admin styles for consistency).
+		wp_enqueue_style(
+			'formscrm-admin',
+			FORMSCRM_PLUGIN_URL . 'includes/assets/formscrm-admin.css',
+			array(),
+			FORMSCRM_VERSION,
+			'all'
+		);
+
+		// Enqueue JavaScript.
+		wp_enqueue_script(
+			'formscrm-cf7-autosubmit',
+			FORMSCRM_PLUGIN_URL . 'includes/assets/js/cf7-autosubmit.js',
+			array(),
+			FORMSCRM_VERSION,
+			true
+		);
+	}
+	/**
+	 * Fills dynamic value with shortcode support.
+	 *
+	 * Supports {id:field_name} syntax to reference other form field values.
+	 * Example: "Customer: {id:your-name} - {id:your-email}"
+	 *
+	 * @param string $field_value Field value that may contain shortcodes.
+	 * @param array  $submitted_data All submitted form data.
+	 * @return string Processed field value with shortcodes replaced.
+	 */
+	private function fill_dynamic_value( $field_value, $submitted_data ) {
+		if ( ! str_contains( $field_value, '{id:' ) ) {
+			return $field_value;
+		}
+
+		// Generate dynamic value.
+		$matches = array();
+		preg_match_all( '/{([^}]*)}/', $field_value, $matches );
+		if ( empty( $matches[1] ) ) {
+			return $field_value;
+		}
+
+		foreach ( $matches[1] as $match ) {
+			$field_options = explode( ':', $match );
+			if ( ! isset( $field_options[1] ) || 'id' !== $field_options[0] ) {
+				continue;
+			}
+
+			$field_name = $field_options[1];
+			if ( ! isset( $submitted_data[ $field_name ] ) ) {
+				continue;
+			}
+
+			// Get the value from submitted data.
+			$entry_value = $submitted_data[ $field_name ];
+
+			// Handle array values (checkboxes, etc.).
+			if ( is_array( $entry_value ) ) {
+				$entry_value = implode( ', ', $entry_value );
+			}
+
+			// Replace the shortcode with the actual value.
+			$field_value = str_replace( '{' . $match . '}', $entry_value, $field_value );
+		}
+
+		return $field_value;
 	}
 }
 
