@@ -4,8 +4,8 @@ Tags: gravityforms, wpforms, crm, vtiger, odoo
 Donate link: https://close.marketing/go/donate/
 Requires at least: 5.5
 Tested up to: 7.0
-Stable tag: 4.3.2
-Version: 4.3.2
+Stable tag: 4.3.3
+Version: 4.3.3
 License: GPL2
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -243,6 +243,13 @@ WordPress installation and then activate the Plugin from Plugins page.
 [Official Repository GitHub](https://github.com/closemarketing/formscrm/)
 
 == Changelog ==
+
+= 4.3.3 =
+* Added: Smart support for Clientify API v2 and v1 with enhanced login response handling and error messages. 
+* Fixed: Elementor Forms field mapping only processed the first occurrence when multiple CRM fields mapped to the same form field; now all mappings are applied correctly.
+* Tests: Added unit tests for Elementor and Contact Form 7 merge vars field mapping.
+* Fixed: CF7 GDPR checkbox value sent as field name instead of boolean when unchecked, causing gdpr_accept to always be true in Clientify.
+* Fixed: Error logs page not working properly.
 
 = 4.3.2 =
 *  Migrated: Clientify to API v2 (api-plus.clientify.com/v2): login me/, custom fields object_type filter, deal creation with ID-based refs and inline products (v2 schema).

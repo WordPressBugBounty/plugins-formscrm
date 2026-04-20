@@ -182,6 +182,10 @@ class FORMSCRM_CF7_Settings {
 					return;
 				}
 
+				if ( is_array( $login_crm ) && isset( $login_crm['status'] ) && 'error' === $login_crm['status'] ) {
+					echo '<p style="color: red;">' . esc_html( $login_crm['message'] ) . '</p>';
+					return;
+				}
 				if ( false === $login_crm ) {
 					return;
 				}
@@ -286,7 +290,7 @@ class FORMSCRM_CF7_Settings {
 		if ( empty( $this->crmlib ) ) {
 			return;
 		}
-		$merge_vars      = $this->get_merge_vars( $cf7_crm, $submission->get_posted_data() );
+		$merge_vars      = self::get_merge_vars( $cf7_crm, $submission->get_posted_data() );
 		$response_result = $this->crmlib->create_entry( $cf7_crm, $merge_vars );
 
 		if ( 'error' === $response_result['status'] ) {
@@ -311,7 +315,7 @@ class FORMSCRM_CF7_Settings {
 	 * @param array $submitted_data Submitted data.
 	 * @return array
 	 */
-	public function get_merge_vars( $cf7_crm, $submitted_data ) {
+	public static function get_merge_vars( $cf7_crm, $submitted_data ) {
 		if ( empty( $cf7_crm ) || ! is_array( $cf7_crm ) ) {
 			return array();
 		}
@@ -322,7 +326,7 @@ class FORMSCRM_CF7_Settings {
 			}
 			$crm_key = str_replace( 'fc_crm_field-', '', $key );
 
-			if ( ! empty( $submitted_data[ $value ] ) ) {
+			if ( isset( $submitted_data[ $value ] ) ) {
 				$value = $submitted_data[ $value ];
 			}
 
@@ -331,7 +335,7 @@ class FORMSCRM_CF7_Settings {
 			}
 
 			// Process dynamic values (shortcodes).
-			$value = $this->fill_dynamic_value( $value, $submitted_data );
+			$value = self::fill_dynamic_value( $value, $submitted_data );
 
 			$merge_vars[] = array(
 				'name'  => $crm_key,
@@ -382,7 +386,7 @@ class FORMSCRM_CF7_Settings {
 	 * @param array  $submitted_data All submitted form data.
 	 * @return string Processed field value with shortcodes replaced.
 	 */
-	private function fill_dynamic_value( $field_value, $submitted_data ) {
+	private static function fill_dynamic_value( $field_value, $submitted_data ) {
 		if ( ! str_contains( $field_value, '{id:' ) ) {
 			return $field_value;
 		}
